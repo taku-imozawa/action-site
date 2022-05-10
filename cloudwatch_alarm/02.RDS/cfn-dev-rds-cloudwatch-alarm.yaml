@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create CloudWatch Alarm for dev rds
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "CloudWatch Alarm configuration"
+        Parameters:
+          - SystemName
+          - RdsDBInstance
+          - SNSTopicName
+Parameters:
+  SystemName:
+    Description: EnvironmentName or ServerName
+    Type: String
+    Default: dev  # 環境名
+  RdsDBInstance:
+    Description: RDS DBInstance
+    Type: String
+    Default: stateam-develop-db  # DBインスタンス名
+  SNSTopicName:
+    Description: SNS Topic Name
+    Type: String
+    Default: arn:aws:sns:ap-northeast-1:198943137177:starteam-dev-alert  # SNS トピック
+
+Resources:
+# ------------------------------------------------------------#
+#  CloudWatch Alarm
+# ------------------------------------------------------------#
+# RDS alarm
+  RDSCPUCreditBalanceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-CPUCreditBalance
+      MetricName: CPUCreditBalance
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 300  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 30  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance
+  RDSDatabaseConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-DatabaseConnections
+      MetricName: DatabaseConnections
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 80  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: GreaterThanOrEqualToThreshold  # 閾値以上
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance
+  RDSFreeableMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-FreeableMemory
+      MetricName: FreeableMemory
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 45088768  # 閾値 (42MB)
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance
+  RDSCPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-CPUUtilization
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 90  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: GreaterThanOrEqualToThreshold  # 閾値以上
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance
+  RDSBurstBalanceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-BurstBalance
+      MetricName: BurstBalance
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 20  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance
+  RDSFreeStorageSpaceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName}-RDS-${RdsDBInstance}-FreeStorageSpace
+      MetricName: FreeStorageSpace
+      Namespace: AWS/RDS
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 2147483648  # 閾値 2GB
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RdsDBInstance

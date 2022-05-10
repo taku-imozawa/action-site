@@ -1,0 +1,493 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create CloudWatch Alarm　for dev ec2
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "CloudWatch Alarm configuration"
+        Parameters:
+          - SystemName
+          - Ec2InstanceId
+          - Ec2InstanceType
+          - Ec2ImageId
+          - AlbLoadBalancer
+          - AlbTargetGroup
+          - SNSTopicName
+Parameters:
+  SystemName:
+    Description: EnvironmentName or ServerName
+    Type: String
+    Default: dev  # 環境名
+  Ec2InstanceId:
+    Description: Ec2 InstanceId
+    Type: AWS::EC2::Instance::Id
+    Default: i-071cca1bca0560d4e
+  Ec2InstanceType:
+    Description: Ec2 InstanceType
+    Type: String
+    Default: t2.micro  # インスタンスタイプ ※diskの空き容量などで必要
+  Ec2ImageId:
+    Description: Ec2 InstanceType
+    Type: String
+    Default: ami-0935f52fed590fca8  # ami-id ※プロセス監視で必要  
+  AlbLoadBalancer:
+    Description: AlbLoadBalancer
+    Type: String
+    Default: app/ap-starteam-develop-alb/2c78e0b699f32472  # ALB の ARN
+  AlbTargetGroup:
+    Description: ALB TargetGroup
+    Type: String
+    Default: targetgroup/ap-starteam-develop-tg/86647c3434aac065  # ターゲットグループの ARN
+  SNSTopicName:
+    Description: SNS Topic Name
+    Type: String
+    Default: arn:aws:sns:ap-northeast-1:198943137177:starteam-dev-alert  # SNS トピック
+
+Resources:
+# ------------------------------------------------------------#
+#  CloudWatch Alarm
+# ------------------------------------------------------------#
+###############################################################
+### EC2 alarm
+###############################################################
+#  EC2StatusCheckFailedAlarm:
+#    Type: AWS::CloudWatch::Alarm
+#    Properties:
+#      AlarmActions:
+#        - !Ref SNSTopicName  # アラーム時のアクション
+#      AlarmName: !Sub ${SystemName} EC2 ステータスチェック
+#      MetricName: StatusCheckFailed
+#      Namespace: AWS/EC2
+#      Statistic: Average  # 平均
+#      Period: 60  # 期間[s]
+#      EvaluationPeriods: 1  # 閾値超過回数
+#      Threshold: 0  # 閾値
+#      TreatMissingData: breaching  # 欠落データは不良
+#      OKActions:
+#        - !Ref SNSTopicName  # 復旧時のアクション
+#      ComparisonOperator: GreaterThanThreshold  # 閾値より大きい
+#      Dimensions:
+#        - Name: InstanceId
+#          Value: !Ref Ec2InstanceId
+  EC2CPUCreditBalanceAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} EC2 CPU CPUCreditBalance
+      MetricName: CPUCreditBalance
+      Namespace: AWS/EC2
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 100  # 閾値
+      TreatMissingData: notBreaching  # 欠落データは良好
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+  EC2CPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} EC2 CPU Used
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 90  # 閾値
+      TreatMissingData: notBreaching  # 欠落データは良好
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: GreaterThanOrEqualToThreshold  # 閾値以上
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+  EC2MemUsedPercentAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} EC2 mem_used_percent
+      MetricName: mem_used_percent
+      Namespace: CWAgent
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 90  # 閾値
+      TreatMissingData: notBreaching  # 欠落データは良好
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: GreaterThanOrEqualToThreshold  # 閾値以上
+      Dimensions:
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+#        - Name: ImageId
+#          Value: !Ref Ec2ImageId
+#        - Name: InstanceType
+#          Value: !Ref Ec2InstanceType
+  EC2DiskUsedPercentAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} EC2 disk_used_percent
+      MetricName: disk_used_percent
+      Namespace: CWAgent
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 90  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: GreaterThanOrEqualToThreshold  # 閾値以上
+      Dimensions:
+        - Name: path
+          Value: /  # 環境に合わせて変更
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+        - Name: device
+          Value: xvda1  # 環境に合わせて変更
+        - Name: fstype
+          Value: xfs  # 環境に合わせて変更
+  EC2DiskinodesfreeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} EC2 disk_inodes_free
+      MetricName: disk_inodes_free
+      Namespace: CWAgent
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 2  # 閾値超過回数
+      Threshold: 10000  # 閾値
+      TreatMissingData: notBreaching  # 欠落データは良好
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanOrEqualToThreshold  # 閾値以下
+      Dimensions:
+        - Name: path
+          Value: /  # 環境に合わせて変更
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+        - Name: device
+          Value: xvda1  # 環境に合わせて変更
+        - Name: fstype
+          Value: xfs  # 環境に合わせて変更
+
+# EC2 middleware process alarm
+  ProcessAmazonCloudwatchAgentAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} cloudwatch-agent process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 1  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: cloudwatch-agent
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+  ProcessSsmAgentAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} ssm-agent process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 2  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: ssm-agent
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+  ProcessCrondAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} crond process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 1  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: crond
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+  ProcessNginxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} nginx process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 2  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: nginx
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+  ProcessSshdAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} sshd process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 1  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: sshd
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+  ProcessPostfixMasterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} postfix process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 3  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: postfix
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+#  ProcessSssdAlarm:
+#    Type: AWS::CloudWatch::Alarm
+#    Properties:
+#      AlarmActions:
+#        - !Ref SNSTopicName  # アラーム時のアクション
+#      AlarmName: !Sub ${SystemName} sssd process
+#      MetricName: procstat_lookup_pid_count
+#      Namespace: CWAgent
+#      Statistic: Maximum  # 最大
+#      Period: 60  # 期間[s]
+#      EvaluationPeriods: 1  # 閾値超過回数
+#      Threshold: 1  # 閾値
+#      TreatMissingData: breaching  # 欠落データは不良
+#      OKActions:
+#        - !Ref SNSTopicName  # 復旧時のアクション
+#      ComparisonOperator: LessThanThreshold  # 閾値未満
+#      Dimensions:
+#        - Name: exe
+#          Value: sssd
+#        - Name: InstanceId
+#          Value: !Ref Ec2InstanceId
+#        - Name: ImageId
+#          Value: !Ref Ec2ImageId
+#        - Name: pid_finder
+#          Value: native
+#        - Name: InstanceType
+#          Value: !Ref Ec2InstanceType
+  ProcessPumaAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} puma process
+      MetricName: procstat_lookup_pid_count
+      Namespace: CWAgent
+      Statistic: Maximum  # 最大
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 1  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: exe
+          Value: puma
+        - Name: InstanceId
+          Value: !Ref Ec2InstanceId
+        - Name: ImageId
+          Value: !Ref Ec2ImageId
+        - Name: pid_finder
+          Value: native
+        - Name: InstanceType
+          Value: !Ref Ec2InstanceType
+####################################################
+### ALB alarm
+####################################################
+  ALBHealthyHostCountAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - !Ref SNSTopicName  # アラーム時のアクション
+      AlarmName: !Sub ${SystemName} ALB HealthyHostCount
+      MetricName: HealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Average  # 平均
+      Period: 60  # 期間[s]
+      EvaluationPeriods: 1  # 閾値超過回数
+      Threshold: 2  # 閾値
+      TreatMissingData: breaching  # 欠落データは不良
+      OKActions:
+        - !Ref SNSTopicName  # 復旧時のアクション
+      ComparisonOperator: LessThanThreshold  # 閾値未満
+      Dimensions:
+        - Name: TargetGroup
+          Value: !Ref AlbTargetGroup
+        - Name: LoadBalancer
+          Value: !Ref AlbLoadBalancer
+#        - Name: AvailabilityZone
+#          Value: ap-northeast-1a
+#
+#  ALBRejectedConnectionCountAlarm:
+#    Type: AWS::CloudWatch::Alarm
+#    Properties:
+#      AlarmActions:
+#        - !Ref SNSTopicName  # アラーム時のアクション
+#      AlarmName: !Sub ${SystemName} ALB RejectedConnectionCount
+#      MetricName: RejectedConnectionCount
+#      Namespace: AWS/ApplicationELB
+#      Statistic: Average  # 平均
+#      Period: 60  # 期間[s]
+#      EvaluationPeriods: 1  # 閾値超過回数
+#      Threshold: 0  # 閾値
+#      TreatMissingData: notBreaching  # 欠落データは良好
+#      OKActions:
+#        - !Ref SNSTopicName  # 復旧時のアクション
+#      ComparisonOperator: GreaterThanThreshold  # 閾値より大きい
+#      Dimensions:
+#        - Name: LoadBalancer
+#          Value: !Ref AlbLoadBalancer
+#  ALBTargetConnectionErrorCountAlarm:
+#    Type: AWS::CloudWatch::Alarm
+#    Properties:
+#      AlarmActions:
+#        - !Ref SNSTopicName  # アラーム時のアクション
+#      AlarmName: !Sub ${SystemName} ALB TargetConnectionErrorCount
+#      MetricName: TargetConnectionErrorCount
+#      Namespace: AWS/ApplicationELB
+#      Statistic: Average  # 平均
+#      Period: 60  # 期間[s]
+#      EvaluationPeriods: 1  # 閾値超過回数
+#      Threshold: 0  # 閾値
+#      TreatMissingData: notBreaching  # 欠落データは良好
+#      OKActions:
+#        - !Ref SNSTopicName  # 復旧時のアクション
+#      ComparisonOperator: GreaterThanThreshold  # 閾値より大きい
+#      Dimensions:
+#        - Name: LoadBalancer
+#          Value: !Ref AlbLoadBalancer
+#  ALBTargetTLSNegotiationErrorCountAlarm:
+#    Type: AWS::CloudWatch::Alarm
+#    Properties:
+#      AlarmActions:
+#        - !Ref SNSTopicName  # アラーム時のアクション
+#      AlarmName: !Sub ${SystemName} ALB TargetTLSNegotiationErrorCount
+#      MetricName: TargetTLSNegotiationErrorCount
+#      Namespace: AWS/ApplicationELB
+#      Statistic: Average  # 平均
+#      Period: 60  # 期間[s]
+#      EvaluationPeriods: 1  # 閾値超過回数
+#      Threshold: 0  # 閾値
+#      TreatMissingData: notBreaching  # 欠落データは良好
+#      OKActions:
+#        - !Ref SNSTopicName  # 復旧時のアクション
+#      ComparisonOperator: GreaterThanThreshold  # 閾値より大きい
+#      Dimensions:
+#        - Name: LoadBalancer
+#          Value: !Ref AlbLoadBalancer
